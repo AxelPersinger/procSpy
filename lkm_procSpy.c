@@ -27,6 +27,12 @@ MAX_SYMBOL_LEN - Maximum symbol len in kernel
 
 /*DECLARATIONS
 MonitoredPID - Struct containing information that we monitor about a PID
+pMonitoredPID - pointer to struct
+kp_PreHandler - Handles pre-trampoline logic for kprobe
+kp_PostHandler - Handles post-trampoline logic for kprobe
+iterate_procs - Iterates over all procs and monitors/ignores them as necessary
+lkm_procSpy_init - Initialization function for kmod
+lkm_procSpy_exit - Exit function for kmod
 */
 struct MonitoredPID {
 	void* in;
@@ -46,31 +52,10 @@ kp - Kernel probe struct
 MonitoredPIDs - Array of MonitoredPID structs accessed by their pid
 */
 static char symbol[MAX_SYMBOL_LEN] = "_do_fork";
-static unsigned int precounter = 0;
-static unsigned int postcounter = 0;
 static struct kprobe kp = {
 	.symbol_name = symbol,
 };
 pMonitoredPID MonitoredPIDs[PID_MAX_LIMIT];
-
-// int for_each_task(void *data)
-// {
-// 	struct task_struct *g, *p;
-// 	do_each_thread(g, p) 
-// 	{
-// 		if (MonitoredPIDs[p->pid] == NULL)
-// 		{
-// 			struct MonitoredPID *tempMonitoredPID = malloc(sizeof(MonitoredPID));
-// 			tempMonitoredPID->in = NULL;
-// 			tempMonitoredPID->out = NULL;
-// 			tempMonitoredPID->err = NULL;
-
-// 			MonitoredPIDs[p->pid] = tempMonitoredPID;
-// 		}
-// 	} while_each_thread(g, p);
-
-// 	return 0;
-// }
 
 static int kp_PreHandler(struct kprobe *p, struct pt_regs *regs)
 {
@@ -88,23 +73,23 @@ static void kp_PostHandler(struct kprobe *p, struct pt_regs *regs, unsigned long
 
 void iterate_procs(void)
 {
-        struct task_struct* task_list;
-		pMonitoredPID tempMonitoredPID;
+	struct task_struct* task_list;
+	pMonitoredPID tempMonitoredPID;
 
-        for_each_process(task_list) {
-				printk("[%s][%s]: Working on PID %d (%s)", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
-				if (MonitoredPIDs[task_list->pid] != NULL)
-				{
-					printk("[%s][%s]: %d (%s) already monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
-				}
-				else
-				{
-					printk("[%s][%s]: %d (%s) is now being monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
-					tempMonitoredPID = kmalloc(sizeof(struct MonitoredPID), GFP_KERNEL);
-					MonitoredPIDs[task_list->pid] = tempMonitoredPID;
-					printk("[%s][%s]: MonitoredPIDs[task_list->pid] (MonitoredPIDs[%d]) = %p", __FILE__, __FUNCTION__, task_list->pid, MonitoredPIDs[task_list->pid]);
-				}
-        }
+	for_each_process(task_list) {
+		printk("[%s][%s]: Working on PID %d (%s)", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+		if (MonitoredPIDs[task_list->pid] != NULL)
+		{
+			printk("[%s][%s]: %d (%s) already monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+		}
+		else
+		{
+			printk("[%s][%s]: %d (%s) is now being monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+			tempMonitoredPID = kmalloc(sizeof(struct MonitoredPID), GFP_KERNEL);
+			MonitoredPIDs[task_list->pid] = tempMonitoredPID;
+			printk("[%s][%s]: MonitoredPIDs[task_list->pid] (MonitoredPIDs[%d]) = %p", __FILE__, __FUNCTION__, task_list->pid, MonitoredPIDs[task_list->pid]);
+		}
+	}
 }
 
 static int __init lkm_procSpy_init(void) 
@@ -136,6 +121,16 @@ static int __init lkm_procSpy_init(void)
 
 static void __exit lkm_procSpy_exit(void)
 {
+	int i;
+	printk(KERN_INFO "[%s][%s]: Free'ing all MonitoredPIDs\n",__FILE__,  __FUNCTION__);
+	for(i = 0; i < PID_MAX_LIMIT; i++)
+	{
+		if (MonitoredPIDs[i] != NULL)
+		{
+			kfree(MonitoredPIDs[i]);
+		}
+	}
+
 	printk(KERN_INFO "[%s][%s]: Removing kprobe\n",__FILE__,  __FUNCTION__);
 	unregister_kprobe(&kp);
 	printk(KERN_INFO "[%s][%s]: kprobe removed\n",__FILE__,  __FUNCTION__);
