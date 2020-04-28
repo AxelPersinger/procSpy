@@ -59,15 +59,11 @@ pMonitoredPID MonitoredPIDs[PID_MAX_LIMIT];
 
 static int kp_PreHandler(struct kprobe *p, struct pt_regs *regs)
 {
-	// printk("[%s][%s]: precounter=%u\n", __FILE__,  __FUNCTION__, precounter++);
 	return 0;
 }
 
 static void kp_PostHandler(struct kprobe *p, struct pt_regs *regs, unsigned long flags)
 {
-	// printk("[%s][%s]: Entry postcounter=%u\n", __FILE__,  __FUNCTION__, postcounter++);
-    // //stop_machine(for_each_task, NULL, NULL);
-	// printk("[%s][%s]: Exit postcounter=%u\n", __FILE__,  __FUNCTION__, postcounter);
 	iterate_procs();
 }
 
@@ -77,24 +73,24 @@ void iterate_procs(void)
 	pMonitoredPID tempMonitoredPID;
 
 	for_each_process(task_list) {
-		printk("[%s][%s]: Working on PID %d (%s)", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+		pr_debug("[%s][%s]: Working on PID %d (%s)", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
 		if (MonitoredPIDs[task_list->pid] != NULL)
 		{
-			printk("[%s][%s]: %d (%s) already monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+			pr_debug("[%s][%s]: %d (%s) already monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
 		}
 		else
 		{
-			printk("[%s][%s]: %d (%s) is now being monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
+			pr_debug("[%s][%s]: %d (%s) is now being monitored", __FILE__, __FUNCTION__, task_list->pid, task_list->comm);
 			tempMonitoredPID = kmalloc(sizeof(struct MonitoredPID), GFP_KERNEL);
 			MonitoredPIDs[task_list->pid] = tempMonitoredPID;
-			printk("[%s][%s]: MonitoredPIDs[task_list->pid] (MonitoredPIDs[%d]) = %p", __FILE__, __FUNCTION__, task_list->pid, MonitoredPIDs[task_list->pid]);
+			pr_debug("[%s][%s]: MonitoredPIDs[task_list->pid] (MonitoredPIDs[%d]) = %p", __FILE__, __FUNCTION__, task_list->pid, MonitoredPIDs[task_list->pid]);
 		}
 	}
 }
 
-static int __init lkm_procSpy_init(void) 
+static int __init lkm_procSpy_init(void)
 {
-	int i;
+	int i;  
 	int ret;
 
 	// Set each item in MonitoredPIDs to NULL on startup
@@ -104,16 +100,16 @@ static int __init lkm_procSpy_init(void)
 	}
 
 	// Install kprobe
-	printk(KERN_INFO "[%s][%s]: Installing kprobe\n", __FILE__,  __FUNCTION__);
+	pr_info("[%s][%s]: Installing kprobe\n", __FILE__,  __FUNCTION__);
 	kp.pre_handler = kp_PreHandler;
 	kp.post_handler = kp_PostHandler;
 	ret = register_kprobe(&kp);
 	if (ret < 0)
 	{
-		printk(KERN_INFO "[%s][%s] kprobe Installation failed\n", __FILE__,  __FUNCTION__);
+		pr_err("[%s][%s] kprobe Installation failed\n", __FILE__,  __FUNCTION__);
 		return ret;
 	}
-	printk(KERN_INFO "[%s][%s]: kprobe installed at %p\n",__FILE__,  __FUNCTION__, kp.addr);
+	pr_info("[%s][%s]: kprobe installed at %p\n",__FILE__,  __FUNCTION__, kp.addr);
 	
 	return 0;
 }
@@ -122,7 +118,7 @@ static int __init lkm_procSpy_init(void)
 static void __exit lkm_procSpy_exit(void)
 {
 	int i;
-	printk(KERN_INFO "[%s][%s]: Free'ing all MonitoredPIDs\n",__FILE__,  __FUNCTION__);
+	pr_info("[%s][%s]: Free'ing all MonitoredPIDs\n",__FILE__,  __FUNCTION__);
 	for(i = 0; i < PID_MAX_LIMIT; i++)
 	{
 		if (MonitoredPIDs[i] != NULL)
@@ -131,9 +127,9 @@ static void __exit lkm_procSpy_exit(void)
 		}
 	}
 
-	printk(KERN_INFO "[%s][%s]: Removing kprobe\n",__FILE__,  __FUNCTION__);
+	pr_info("[%s][%s]: Removing kprobe\n",__FILE__,  __FUNCTION__);
 	unregister_kprobe(&kp);
-	printk(KERN_INFO "[%s][%s]: kprobe removed\n",__FILE__,  __FUNCTION__);
+	pr_info("[%s][%s]: kprobe removed\n",__FILE__,  __FUNCTION__);
 }
 
 module_init(lkm_procSpy_init);
