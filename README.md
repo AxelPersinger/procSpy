@@ -4,8 +4,8 @@ A friend of mine asked me if there was a way to spy on any arbitrary process' ST
 
 Goals:
 
-	* Automatically capture processes as they start
-	* Non-intrusive to processes (processes shouldn't know they're being monitored)
-	* Monitor STDIN, STDOUT, STDERR
-	* Write codebase in as vanilla Linux as possible
+* Automatically capture processes as they start
+* Non-intrusive to processes (processes shouldn't know they're being monitored)
+* Monitor STDIN, STDOUT, STDERR
+* Write codebase in as vanilla Linux as possible
 
